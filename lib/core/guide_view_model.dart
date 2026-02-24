@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:http/http.dart' as http;
 
 import 'image_analyzer.dart';
 import 'guide_generator.dart';
@@ -26,6 +27,31 @@ class GuideViewModel extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
 
   bool get isProcessing => _state == ViewState.loading;
+
+  Future<void> processImageFromUrl(String url) async {
+    _errorMessage = null;
+    _guideResult = null;
+    _setState(ViewState.loading);
+    await Future.delayed(const Duration(milliseconds: 80));
+
+    try {
+      final response = await http.get(Uri.parse(url));
+      if (response.statusCode != 200) {
+        _setError('No se pudo cargar la imagen demo.');
+        return;
+      }
+      final bytes = response.bodyBytes;
+      _selectedImageBytes = bytes;
+      notifyListeners();
+
+      final guide = await compute(ImageAnalyzer.analyze, bytes);
+      _guideResult = guide;
+      _setState(ViewState.loaded);
+    } catch (e) {
+      debugPrint('Error: $e');
+      _setError('Error al cargar la imagen demo.');
+    }
+  }
 
   Future<void> pickAndProcessImage() async {
     _setState(ViewState.idle);

@@ -97,6 +97,8 @@ class _GuideHomePageState extends State<GuideHomePage> {
                             ),
                           ),
                         _buildUploadSection(),
+                        const SizedBox(height: 24),
+                        _buildDemoRow(),
                         if (_viewModel.guideResult != null) ...[
                           const SizedBox(height: 48),
                           _buildResultsSection(_viewModel.guideResult!),
@@ -215,7 +217,97 @@ class _GuideHomePageState extends State<GuideHomePage> {
     );
   }
 
+  static const _demos = [
+    (
+      label: 'Figura anime',
+      emoji: '🗡️',
+      url: 'https://images.unsplash.com/photo-1531259683007-016a7b628fc3?w=800',
+    ),
+    (
+      label: 'Ángel de la Independencia',
+      emoji: '🏛️',
+      url: 'https://images.unsplash.com/photo-1585464231875-d9ef1f5ad396?w=800',
+    ),
+    (
+      label: 'Seattle al amanecer',
+      emoji: '🌆',
+      url: 'https://images.unsplash.com/photo-1502175353174-a7a70e73b362?w=800',
+    ),
+  ];
+
+  Widget _buildDemoRow() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'O prueba una demo',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Colors.black45,
+            letterSpacing: 0.3,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: _demos.map((demo) => Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(right: 10),
+              child: _buildDemoCard(demo.label, demo.emoji, demo.url),
+            ),
+          )).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDemoCard(String label, String emoji, String url) {
+    final bool disabled = _viewModel.isProcessing;
+    return GestureDetector(
+      onTap: disabled ? null : () => _viewModel.processImageFromUrl(url),
+      child: AnimatedOpacity(
+        opacity: disabled ? 0.4 : 1.0,
+        duration: const Duration(milliseconds: 200),
+        child: Container(
+          height: 72,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.blueGrey.shade100),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(emoji, style: const TextStyle(fontSize: 20)),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black54,
+                  ),
+                  maxLines: 2,
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildResultsSection(GuideResult guide) {
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
