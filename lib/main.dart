@@ -1,5 +1,7 @@
 import 'dart:typed_data';
 import 'dart:ui' as ui;
+// ignore: avoid_web_libraries_in_flutter
+import 'dart:html' as html;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -7,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'core/guide_view_model.dart';
 import 'core/guide_generator.dart';
 import 'core/app_strings.dart';
+import 'core/gif_encoder_isolate.dart';
 
 void main() {
   runApp(const PaintGuideApp());
@@ -41,13 +44,40 @@ class _GuideHomePageState extends State<GuideHomePage> {
   final GuideViewModel _viewModel = GuideViewModel();
   final ValueNotifier<AppLang> _lang = ValueNotifier(AppLang.en);
   final ValueNotifier<bool> _cumulativeMode = ValueNotifier(false);
+  final ValueNotifier<bool> _encodingGif   = ValueNotifier(false);
 
   @override
   void dispose() {
     _viewModel.dispose();
     _lang.dispose();
     _cumulativeMode.dispose();
+    _encodingGif.dispose();
     super.dispose();
+  }
+
+  Future<void> _downloadGif(GuideResult guide) async {
+    if (_encodingGif.value) return;
+    _encodingGif.value = true;
+    try {
+      final images = _cumulativeMode.value
+          ? guide.cumulativeStepImages
+          : guide.stepImages;
+      if (images.isEmpty) return;
+
+      final gifBytes = await compute(encodeAnimatedGif, images);
+
+      // Trigger browser download
+      if (kIsWeb && gifBytes.isNotEmpty) {
+        final blob = html.Blob([gifBytes], 'image/gif');
+        final url  = html.Url.createObjectUrlFromBlob(blob);
+        html.AnchorElement(href: url)
+          ..setAttribute('download', 'rossidifier_paint_guide.gif')
+          ..click();
+        html.Url.revokeObjectUrl(url);
+      }
+    } finally {
+      _encodingGif.value = false;
+    }
   }
 
   @override
@@ -369,7 +399,7 @@ class _GuideHomePageState extends State<GuideHomePage> {
           }).toList(),
         ),
         const SizedBox(height: 48),
-        // ── Strategy header + mode toggle ──────────────────
+        // ── Strategy header + mode toggle + download ────────
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -383,28 +413,76 @@ class _GuideHomePageState extends State<GuideHomePage> {
                 letterSpacing: -0.5,
               ),
             ),
-            ValueListenableBuilder<bool>(
-              valueListenable: _cumulativeMode,
-              builder: (context, cumulative, _) {
-                return GestureDetector(
-                  onTap: () => _cumulativeMode.value = !_cumulativeMode.value,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.blueGrey.shade50,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.blueGrey.shade200),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _renderModePill(label: s.modeSnapshot,    active: !cumulative),
-                        _renderModePill(label: s.modeCumulative,  active: cumulative),
-                      ],
-                    ),
-                  ),
-                );
-              },
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // ── Mode toggle pill ──
+                ValueListenableBuilder<bool>(
+                  valueListenable: _cumulativeMode,
+                  builder: (context, cumulative, _) {
+                    return GestureDetector(
+                      onTap: () => _cumulativeMode.value = !_cumulativeMode.value,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.blueGrey.shade50,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: Colors.blueGrey.shade200),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _renderModePill(label: s.modeSnapshot,    active: !cumulative),
+                            _renderModePill(label: s.modeCumulative,  active: cumulative),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(width: 10),
+                // ── Download GIF button ──
+                ValueListenableBuilder<bool>(
+                  valueListenable: _encodingGif,
+                  builder: (context, encoding, _) {
+                    return GestureDetector(
+                      onTap: encoding ? null : () => _downloadGif(guide),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                        decoration: BoxDecoration(
+                          color: encoding ? Colors.blueGrey.shade100 : Colors.deepPurple.shade600,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (encoding)
+                              const SizedBox(
+                                width: 13, height: 13,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.deepPurple,
+                                ),
+                              )
+                            else
+                              const Text('⬇', style: TextStyle(fontSize: 13)),
+                            const SizedBox(width: 6),
+                            Text(
+                              encoding ? s.gifEncoding : s.gifDownload,
+                              style: TextStyle(
+                                color: encoding ? Colors.blueGrey.shade400 : Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
             ),
           ],
         ),

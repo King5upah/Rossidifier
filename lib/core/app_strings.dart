@@ -53,6 +53,10 @@ class AppStrings {
       ? 'Each image builds on the previous — like paint layers on a real canvas.'
       : 'Cada imagen construye sobre la anterior — como capas de pintura en un lienzo real.';
 
+  // ── GIF Export ────────────────────────────────────────────────────────────
+  String get gifDownload  => isEn ? 'Download GIF' : 'Descargar GIF';
+  String get gifEncoding  => isEn ? 'Encoding…'    : 'Codificando…';
+
   // ── Painting steps ───────────────────────────────────────────────────────
   String stepTitle(StepKey key) {
     switch (key) {
