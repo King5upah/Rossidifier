@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 
 import 'core/guide_view_model.dart';
 import 'core/guide_generator.dart';
+import 'core/app_strings.dart';
 
 void main() {
   runApp(const PaintGuideApp());
@@ -38,93 +39,133 @@ class GuideHomePage extends StatefulWidget {
 
 class _GuideHomePageState extends State<GuideHomePage> {
   final GuideViewModel _viewModel = GuideViewModel();
+  final ValueNotifier<AppLang> _lang = ValueNotifier(AppLang.en);
 
   @override
   void dispose() {
     _viewModel.dispose();
+    _lang.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: _viewModel,
-      builder: (context, _) {
-        return Scaffold(
-          backgroundColor: const Color(0xFFFAFAFA),
-          body: Stack(
-            children: [
-              SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 800),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        const Text(
-                          'PaintGuide',
-                          style: TextStyle(
-                            fontSize: 40,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.black87,
-                            letterSpacing: -1,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 12),
-                        const Text(
-                          'De imagen a pintura acrílica en pasos simples.',
-                          style: TextStyle(
-                            fontSize: 18,
-                            color: Colors.black54,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 48),
-                        if (_viewModel.errorMessage != null)
-                          Container(
-                            margin: const EdgeInsets.only(bottom: 24),
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Colors.red.shade50,
-                              borderRadius: BorderRadius.circular(12),
+    return ValueListenableBuilder<AppLang>(
+      valueListenable: _lang,
+      builder: (context, lang, _) {
+        final s = AppStrings(lang);
+        return ListenableBuilder(
+          listenable: _viewModel,
+          builder: (context, _) {
+            return Scaffold(
+              backgroundColor: const Color(0xFFFAFAFA),
+              body: Stack(
+                children: [
+                  SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 800),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            // ── Language toggle ──────────────────────────
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: GestureDetector(
+                                onTap: () => _lang.value =
+                                    _lang.value == AppLang.en ? AppLang.es : AppLang.en,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black87,
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Text('🌐', style: TextStyle(fontSize: 14)),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        lang == AppLang.en ? 'EN' : 'ES',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 13,
+                                          letterSpacing: 0.5,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
                             ),
-                            child: Text(
-                              _viewModel.errorMessage!,
-                              style: TextStyle(color: Colors.red.shade800),
+                            const SizedBox(height: 16),
+                            // ── Title ───────────────────────────────────
+                            Text(
+                              s.appTitle,
+                              style: const TextStyle(
+                                fontSize: 40,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.black87,
+                                letterSpacing: -1,
+                              ),
                               textAlign: TextAlign.center,
                             ),
-                          ),
-                        _buildUploadSection(),
-                        const SizedBox(height: 24),
-                        _buildDemoRow(),
-                        if (_viewModel.guideResult != null) ...[
-                          const SizedBox(height: 48),
-                          _buildResultsSection(_viewModel.guideResult!),
-                        ]
-                      ],
+                            const SizedBox(height: 12),
+                            Text(
+                              s.appSubtitle,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                color: Colors.black54,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 48),
+                            if (_viewModel.errorMessage != null)
+                              Container(
+                                margin: const EdgeInsets.only(bottom: 24),
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.shade50,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  _viewModel.errorMessage!,
+                                  style: TextStyle(color: Colors.red.shade800),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            _buildUploadSection(s),
+                            const SizedBox(height: 24),
+                            _buildDemoRow(s),
+                            if (_viewModel.guideResult != null) ...[
+                              const SizedBox(height: 48),
+                              _buildResultsSection(_viewModel.guideResult!, s),
+                            ]
+                          ],
+                        ),
+                      ),
                     ),
                   ),
-                ),
+                  // Loading overlay
+                  if (_viewModel.isProcessing)
+                    Positioned.fill(
+                      child: AbsorbPointer(
+                        absorbing: true,
+                        child: _LoadingOverlay(s: s),
+                      ),
+                    ),
+                ],
               ),
-              // Loading overlay — Positioned.fill first so it fills the Stack,
-              // then AbsorbPointer to block all interaction beneath it.
-              if (_viewModel.isProcessing)
-                Positioned.fill(
-                  child: AbsorbPointer(
-                    absorbing: true,
-                    child: _LoadingOverlay(),
-                  ),
-                ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
   }
 
-  Widget _buildUploadSection() {
+  Widget _buildUploadSection(AppStrings s) {
     return GestureDetector(
       onTap: _viewModel.isProcessing ? null : _viewModel.pickAndProcessImage,
       child: AnimatedContainer(
@@ -149,15 +190,12 @@ class _GuideHomePageState extends State<GuideHomePage> {
           ],
         ),
         clipBehavior: Clip.antiAlias,
-        child: _buildUploadContent(),
+        child: _buildUploadContent(s),
       ),
     );
   }
 
-  Widget _buildUploadContent() {
-    // Note: The loading state is now handled by the fullscreen stack overlay.
-    // If we are processing, we just show the image behind the blur.
-
+  Widget _buildUploadContent(AppStrings s) {
     if (_viewModel.selectedImageBytes != null) {
       return Stack(
         fit: StackFit.expand,
@@ -166,15 +204,14 @@ class _GuideHomePageState extends State<GuideHomePage> {
             _viewModel.selectedImageBytes!,
             fit: BoxFit.contain,
           ),
-          // Only show the change-image overlay when NOT processing
           if (!_viewModel.isProcessing)
             Positioned.fill(
               child: Container(
                 color: Colors.black.withOpacity(0.3),
-                child: const Center(
+                child: Center(
                   child: Text(
-                    'Cambiar imagen',
-                    style: TextStyle(
+                    s.changeImage,
+                    style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w600,
                       fontSize: 16,
@@ -197,18 +234,18 @@ class _GuideHomePageState extends State<GuideHomePage> {
           color: Colors.blueGrey.shade200,
         ),
         const SizedBox(height: 24),
-        const Text(
-          'Selecciona una imagen',
-          style: TextStyle(
+        Text(
+          s.uploadPrompt,
+          style: const TextStyle(
             color: Colors.black87,
             fontWeight: FontWeight.w600,
             fontSize: 18,
           ),
         ),
         const SizedBox(height: 8),
-        const Text(
-          'JPG o PNG • Max 10MB',
-          style: TextStyle(
+        Text(
+          s.uploadHint,
+          style: const TextStyle(
             color: Colors.black45,
             fontSize: 14,
           ),
@@ -235,13 +272,14 @@ class _GuideHomePageState extends State<GuideHomePage> {
     ),
   ];
 
-  Widget _buildDemoRow() {
+  Widget _buildDemoRow(AppStrings s) {
+    final labels = [s.demoAnime, s.demoMexico, s.demoSeattle];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'O prueba una demo',
-          style: TextStyle(
+        Text(
+          s.demoLabel,
+          style: const TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
             color: Colors.black45,
@@ -250,10 +288,10 @@ class _GuideHomePageState extends State<GuideHomePage> {
         ),
         const SizedBox(height: 12),
         Row(
-          children: _demos.map((demo) => Expanded(
+          children: _demos.asMap().entries.map((e) => Expanded(
             child: Padding(
               padding: const EdgeInsets.only(right: 10),
-              child: _buildDemoCard(demo.label, demo.emoji, demo.url),
+              child: _buildDemoCard(labels[e.key], e.value.emoji, e.value.url),
             ),
           )).toList(),
         ),
@@ -306,14 +344,13 @@ class _GuideHomePageState extends State<GuideHomePage> {
     );
   }
 
-  Widget _buildResultsSection(GuideResult guide) {
-
+  Widget _buildResultsSection(GuideResult guide, AppStrings s) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Tu Paleta',
-          style: TextStyle(
+        Text(
+          s.paletteTitle,
+          style: const TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.w800,
             color: Colors.black87,
@@ -330,9 +367,9 @@ class _GuideHomePageState extends State<GuideHomePage> {
           }).toList(),
         ),
         const SizedBox(height: 48),
-        const Text(
-          'Estrategia Paso a Paso',
-          style: TextStyle(
+        Text(
+          s.guideTitle,
+          style: const TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.w800,
             color: Colors.black87,
@@ -343,13 +380,19 @@ class _GuideHomePageState extends State<GuideHomePage> {
         ...guide.steps.asMap().entries.map((entry) {
           int index = entry.key + 1;
           PaintingStep step = entry.value;
-          
           Uint8List? stepImage;
           if (guide.stepImages.isNotEmpty && guide.stepImages.length > entry.key) {
             stepImage = guide.stepImages[entry.key];
           }
-          
-          return _buildStepCard(index, step.title, step.description, stepImage);
+          return _buildStepCard(
+            index,
+            s.stepTitle(step.stepKey),
+            s.stepDesc(step.stepKey,
+              lightDir: step.lightDir != null ? s.lightDirLabel(step.lightDir!) : null,
+              lightOpp: step.lightOpp != null ? s.lightDirLabel(step.lightOpp!) : null,
+            ),
+            stepImage,
+          );
         }),
       ],
     );
@@ -594,6 +637,8 @@ class _GuideHomePageState extends State<GuideHomePage> {
 
 // ─── Loading Overlay ───────────────────────────────────────────────────────
 class _LoadingOverlay extends StatefulWidget {
+  final AppStrings s;
+  const _LoadingOverlay({required this.s});
   @override
   State<_LoadingOverlay> createState() => _LoadingOverlayState();
 }
@@ -682,9 +727,9 @@ class _LoadingOverlayState extends State<_LoadingOverlay>
                       ),
                     ),
                     const SizedBox(height: 28),
-                    const Text(
-                      'Procesando',
-                      style: TextStyle(
+                    Text(
+                      widget.s.loadingTitle,
+                      style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w800,
                         color: Colors.black87,
@@ -721,10 +766,10 @@ class _LoadingOverlayState extends State<_LoadingOverlay>
                       },
                     ),
                     const SizedBox(height: 14),
-                    const Text(
-                      'Extrayendo colores y\ncalculando estructura.',
+                    Text(
+                      widget.s.loadingSubtitle,
                       textAlign: TextAlign.center,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 13,
                         color: Colors.black45,
                         height: 1.5,
