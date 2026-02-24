@@ -98,6 +98,7 @@ class GuideGenerator {
       steps: steps,
       estimatedTimeMinutes: 45,
       stepImages: [],
+      cumulativeStepImages: [],
     );
   }
 
