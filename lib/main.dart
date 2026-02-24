@@ -40,11 +40,13 @@ class GuideHomePage extends StatefulWidget {
 class _GuideHomePageState extends State<GuideHomePage> {
   final GuideViewModel _viewModel = GuideViewModel();
   final ValueNotifier<AppLang> _lang = ValueNotifier(AppLang.en);
+  final ValueNotifier<bool> _cumulativeMode = ValueNotifier(false);
 
   @override
   void dispose() {
     _viewModel.dispose();
     _lang.dispose();
+    _cumulativeMode.dispose();
     super.dispose();
   }
 
@@ -367,34 +369,103 @@ class _GuideHomePageState extends State<GuideHomePage> {
           }).toList(),
         ),
         const SizedBox(height: 48),
-        Text(
-          s.guideTitle,
-          style: const TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.w800,
-            color: Colors.black87,
-            letterSpacing: -0.5,
+        // ── Strategy header + mode toggle ──────────────────
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Text(
+              s.guideTitle,
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w800,
+                color: Colors.black87,
+                letterSpacing: -0.5,
+              ),
+            ),
+            ValueListenableBuilder<bool>(
+              valueListenable: _cumulativeMode,
+              builder: (context, cumulative, _) {
+                return GestureDetector(
+                  onTap: () => _cumulativeMode.value = !_cumulativeMode.value,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.blueGrey.shade50,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.blueGrey.shade200),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _renderModePill(label: s.modeSnapshot,    active: !cumulative),
+                        _renderModePill(label: s.modeCumulative,  active: cumulative),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ValueListenableBuilder<bool>(
+          valueListenable: _cumulativeMode,
+          builder: (context, cumulative, _) => Text(
+            cumulative ? s.modeDescCumulative : s.modeDescSnapshot,
+            style: const TextStyle(fontSize: 13, color: Colors.black45),
           ),
         ),
         const SizedBox(height: 24),
-        ...guide.steps.asMap().entries.map((entry) {
-          int index = entry.key + 1;
-          PaintingStep step = entry.value;
-          Uint8List? stepImage;
-          if (guide.stepImages.isNotEmpty && guide.stepImages.length > entry.key) {
-            stepImage = guide.stepImages[entry.key];
-          }
-          return _buildStepCard(
-            index,
-            s.stepTitle(step.stepKey),
-            s.stepDesc(step.stepKey,
-              lightDir: step.lightDir != null ? s.lightDirLabel(step.lightDir!) : null,
-              lightOpp: step.lightOpp != null ? s.lightDirLabel(step.lightOpp!) : null,
-            ),
-            stepImage,
-          );
-        }),
+        // ── Step cards ─────────────────────────────────
+        ValueListenableBuilder<bool>(
+          valueListenable: _cumulativeMode,
+          builder: (context, cumulative, _) {
+            final images = cumulative
+                ? guide.cumulativeStepImages
+                : guide.stepImages;
+            return Column(
+              children: guide.steps.asMap().entries.map((entry) {
+                int index = entry.key + 1;
+                PaintingStep step = entry.value;
+                Uint8List? stepImage;
+                if (images.isNotEmpty && images.length > entry.key) {
+                  stepImage = images[entry.key];
+                }
+                return _buildStepCard(
+                  index,
+                  s.stepTitle(step.stepKey),
+                  s.stepDesc(step.stepKey,
+                    lightDir: step.lightDir != null ? s.lightDirLabel(step.lightDir!) : null,
+                    lightOpp: step.lightOpp != null ? s.lightDirLabel(step.lightOpp!) : null,
+                  ),
+                  stepImage,
+                );
+              }).toList(),
+            );
+          },
+        ),
       ],
+    );
+  }
+
+  Widget _renderModePill({required String label, required bool active}) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: active ? Colors.black87 : Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: active ? Colors.white : Colors.black45,
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.3,
+        ),
+      ),
     );
   }
 

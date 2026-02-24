@@ -43,6 +43,16 @@ class AppStrings {
   // ── Tap-to-view ────────────────────────────────────────────────────────
   String get tapToView       => isEn ? 'Tap to expand'       : 'Toca para ver';
 
+  // ── Render mode toggle ─────────────────────────────────────────────────
+  String get modeSnapshot    => isEn ? 'Snapshot'            : 'Instantánea';
+  String get modeCumulative  => isEn ? 'Layered'             : 'Capas';
+  String get modeDescSnapshot    => isEn
+      ? 'Each image shows the target appearance at that stage of detail.'
+      : 'Cada imagen muestra el aspecto objetivo en esa etapa de detalle.';
+  String get modeDescCumulative  => isEn
+      ? 'Each image builds on the previous — like paint layers on a real canvas.'
+      : 'Cada imagen construye sobre la anterior — como capas de pintura en un lienzo real.';
+
   // ── Painting steps ───────────────────────────────────────────────────────
   String stepTitle(StepKey key) {
     switch (key) {

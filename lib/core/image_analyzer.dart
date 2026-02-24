@@ -207,12 +207,64 @@ class ImageAnalyzer {
       stepImages.add(img.encodePng(stepImg));
     }
 
+    // ── Cumulative (layered) pass ──────────────────────────────────────────
+    // Each cumulative image starts from the previous cumulative canvas and
+    // paints the snapshot's non-background pixels ON TOP — exactly like a
+    // painter adding more layers to a physical canvas.
+    final ColorCluster bgColor = globalColors.isNotEmpty
+        ? globalColors[0]
+        : ColorCluster(r: 255, g: 255, b: 255, percentage: 1);
+
+    // Adaptive threshold: half the squared distance between bg and subject color.
+    // Guarantees meaningful detection even when image is near-monochromatic.
+    double bgSubjectDist = globalColors.length > 1
+        ? _dist(bgColor.r, bgColor.g, bgColor.b,
+                globalColors[1].r, globalColors[1].g, globalColors[1].b)
+        : 900.0;
+    final double compositeThr = max(200.0, bgSubjectDist * 0.35);
+
+    List<Uint8List> cumulativeImages = [];
+    img.Image? prevCumCanvas;
+
+    for (int i = 0; i < stepImages.length; i++) {
+      final img.Image snap = img.decodePng(stepImages[i])!;
+      if (i == 0) {
+        // Step 1 is a flat fill — same for both modes
+        cumulativeImages.add(stepImages[0]);
+        prevCumCanvas = img.Image.from(snap);
+      } else {
+        // Composite: wherever the snapshot differs from bg, paint it;
+        // otherwise keep previous cumulative canvas pixel.
+        final img.Image cumCanvas = img.Image.from(prevCumCanvas!);
+        for (int y = 0; y < cumCanvas.height; y++) {
+          for (int x = 0; x < cumCanvas.width; x++) {
+            final sp = snap.getPixel(x, y);
+            final distToBg = _dist(
+              sp.r.toInt(), sp.g.toInt(), sp.b.toInt(),
+              bgColor.r, bgColor.g, bgColor.b,
+            );
+            if (distToBg > compositeThr) {
+              // Non-background content from snapshot → paint on canvas
+              final cp = cumCanvas.getPixel(x, y);
+              cp.r = sp.r;
+              cp.g = sp.g;
+              cp.b = sp.b;
+            }
+            // else → keep previous cumulative pixel (don't wipe what was painted)
+          }
+        }
+        cumulativeImages.add(Uint8List.fromList(img.encodePng(cumCanvas)));
+        prevCumCanvas = cumCanvas;
+      }
+    }
+
     return GuideResult(
       colors: guideResultPart.colors,
       lightDirection: guideResultPart.lightDirection,
       steps: guideResultPart.steps,
       estimatedTimeMinutes: guideResultPart.estimatedTimeMinutes,
       stepImages: stepImages,
+      cumulativeStepImages: cumulativeImages,
     );
   }
 

@@ -24,7 +24,8 @@ class GuideResult {
   final LightDirection lightDirection;
   final List<PaintingStep> steps;
   final int estimatedTimeMinutes;
-  final List<Uint8List> stepImages;
+  final List<Uint8List> stepImages;           // Snapshot mode
+  final List<Uint8List> cumulativeStepImages; // Cumulative (layered) mode
 
   GuideResult({
     required this.colors,
@@ -32,6 +33,7 @@ class GuideResult {
     required this.steps,
     required this.estimatedTimeMinutes,
     required this.stepImages,
+    required this.cumulativeStepImages,
   });
 }
 
