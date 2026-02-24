@@ -44,7 +44,7 @@ class GuideViewModel extends ChangeNotifier {
       _selectedImageBytes = bytes;
       notifyListeners();
 
-      final guide = await compute(ImageAnalyzer.analyze, bytes);
+      final guide = await ImageAnalyzer.analyze(bytes);
       _guideResult = guide;
       _setState(ViewState.loaded);
     } catch (e) {
@@ -88,7 +88,7 @@ class GuideViewModel extends ChangeNotifier {
         await Future.delayed(const Duration(milliseconds: 80));
 
         // Run analysis in an isolate
-        final guide = await compute(ImageAnalyzer.analyze, bytes);
+        final guide = await ImageAnalyzer.analyze(bytes);
 
         _guideResult = guide;
         _setState(ViewState.loaded);

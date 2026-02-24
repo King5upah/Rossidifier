@@ -37,6 +37,11 @@ dependencies:
   file_picker: ^10.3.10
   image: ^4.8.0
   http: ^1.2.0
+  google_fonts: ^6.2.1
+  flutter_animate: ^4.5.0
+  sandblaster:
+    git:
+      url: https://github.com/King5upah/SandBlasterUI.git
 
 dev_dependencies:
   flutter_test:

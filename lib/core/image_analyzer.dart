@@ -9,13 +9,15 @@ import 'guide_generator.dart';
 
 class ImageAnalyzer {
   /// Entry point for analysis, intended to be run in an isolate via compute.
-  static GuideResult analyze(Uint8List bytes) {
+  static Future<GuideResult> analyze(Uint8List bytes) async {
     // 0. Preprocess (Level to Max 1200px, RGB, no alpha)
     final preprocessed = processImageBytes(bytes);
     final baseImage = preprocessed.image;
+    await Future.delayed(const Duration(milliseconds: 10));
 
     // Estimate Light Direction on full image
     final lightDirection = LightEstimator.estimateLightDirection(baseImage);
+    await Future.delayed(const Duration(milliseconds: 10));
 
     // 1. Extract Global Palette (k=6) to get the final colors
     // We lower minPercentage drastically to ensure micro-highlights (like anime eyes) are captured.
@@ -24,6 +26,7 @@ class ImageAnalyzer {
       k: 6,
       minPercentage: 0.005, // 0.5% area preserves small glints and highlights
     );
+    await Future.delayed(const Duration(milliseconds: 10));
     final globalColors = globalExtraction.dominantColors;
     final guideResultPart = GuideGenerator.generate(globalColors, lightDirection);
 
@@ -45,7 +48,7 @@ class ImageAnalyzer {
       } 
       else if (stepIndex == 2) {
         // ETAPA 2 - Masa Principal: Downsample fuerte 0.15, Blur 8, KMeans(k=3, minArea=15%)
-        stepImg = _processProgressiveStep(
+        stepImg = await _processProgressiveStep(
           baseImage, 
           downsampleFactor: 0.15, 
           blurRadius: 8, 
@@ -57,7 +60,7 @@ class ImageAnalyzer {
       } 
       else if (stepIndex == 3) {
         // ETAPA 3 - Sombras: Downsample medio 0.35, Blur 4, KMeans(k=4, minArea=8%)
-        stepImg = _processProgressiveStep(
+        stepImg = await _processProgressiveStep(
           baseImage, 
           downsampleFactor: 0.35, 
           blurRadius: 4, 
@@ -69,7 +72,7 @@ class ImageAnalyzer {
       } 
       else if (stepIndex == 4) {
         // ETAPA 4 - Luces: Downsample leve 0.6, Blur 2, KMeans(k=5, minArea=3%)
-        stepImg = _processProgressiveStep(
+        stepImg = await _processProgressiveStep(
           baseImage, 
           downsampleFactor: 0.60, 
           blurRadius: 2, 
@@ -81,7 +84,7 @@ class ImageAnalyzer {
       } 
       else if (stepIndex == 5) {
         // ETAPA 5 - Estructura: Frecuencia media (Formas grandes)
-        stepImg = _processProgressiveStep(
+        stepImg = await _processProgressiveStep(
           baseImage, 
           downsampleFactor: 0.80, 
           blurRadius: 1, 
@@ -93,9 +96,11 @@ class ImageAnalyzer {
 
         // 1. Blur medio para eliminar microdetalle antes del Sobel
         img.Image blurredForEdges = img.gaussianBlur(baseImage.clone(), radius: 2);
+        await Future.delayed(const Duration(milliseconds: 10));
 
         // 2. Detección profunda de bordes
         img.Image edges = img.sobel(blurredForEdges);
+        await Future.delayed(const Duration(milliseconds: 10));
         var shadowColor = globalColors.length > 2 ? globalColors[2] : globalColors[0];
 
         // 3. Threshold intermedio y mezcla
@@ -124,6 +129,7 @@ class ImageAnalyzer {
         
         // 1. Blur fuerte para separar frecuencias
         img.Image blurred = img.gaussianBlur(baseImage.clone(), radius: 4);
+        await Future.delayed(const Duration(milliseconds: 10));
 
         // 2. Preparar acumuladores para threshold adaptativo y luminancia global
         List<double> magnitudes = [];
@@ -205,6 +211,7 @@ class ImageAnalyzer {
       }
 
       stepImages.add(img.encodePng(stepImg));
+      await Future.delayed(const Duration(milliseconds: 10));
     }
 
     // ── Cumulative (layered) pass ──────────────────────────────────────────
@@ -256,6 +263,7 @@ class ImageAnalyzer {
         cumulativeImages.add(Uint8List.fromList(img.encodePng(cumCanvas)));
         prevCumCanvas = cumCanvas;
       }
+      await Future.delayed(const Duration(milliseconds: 10));
     }
 
     return GuideResult(
@@ -268,7 +276,7 @@ class ImageAnalyzer {
     );
   }
 
-  static img.Image _processProgressiveStep(
+  static Future<img.Image> _processProgressiveStep(
     img.Image baseImage, {
     required double downsampleFactor,
     required int blurRadius,
@@ -276,7 +284,7 @@ class ImageAnalyzer {
     required double minPercentage,
     required List<ColorCluster> globalColors,
     required int validClustersCount,
-  }) {
+  }) async {
     // 1. Downsample safely using aspect-ratio aware sizing
     int smallW = (baseImage.width * downsampleFactor).toInt();
     int smallH = (baseImage.height * downsampleFactor).toInt();
@@ -286,13 +294,16 @@ class ImageAnalyzer {
 
     // 2. Gaussian Blur
     img.Image blurred = img.gaussianBlur(downsampled, radius: blurRadius);
+    await Future.delayed(const Duration(milliseconds: 10));
 
     // 3. Extracción de Colores Regionales y Mapa de Píxeles
+    // Because extractDominantColors is sync and heavy, we just let it run.
     var extraction = ColorExtractor.extractDominantColors(
       blurred,
       k: k,
       minPercentage: minPercentage,
     );
+    await Future.delayed(const Duration(milliseconds: 10));
 
     // To prevent banding, map using actual extracted dimensions
     int exW = extraction.width;
@@ -332,6 +343,7 @@ class ImageAnalyzer {
     // 4. Upscale a resolución final, con interpolación Nearest 
     // (para mantener los bordes del blob "pintable" sin bands/aliasing extras)
     img.Image upscaled = img.copyResize(stepLowRes, width: baseImage.width, height: baseImage.height, interpolation: img.Interpolation.nearest);
+    await Future.delayed(const Duration(milliseconds: 10));
 
     return upscaled;
   }

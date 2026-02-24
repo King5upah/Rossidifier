@@ -43,9 +43,12 @@ class AppStrings {
   // ── Tap-to-view ────────────────────────────────────────────────────────
   String get tapToView       => isEn ? 'Tap to expand'       : 'Toca para ver';
 
-  // ── Render mode toggle ─────────────────────────────────────────────────
-  String get modeSnapshot    => isEn ? 'Snapshot'            : 'Instantánea';
-  String get modeCumulative  => isEn ? 'Layered'             : 'Capas';
+  // ── Tabs ────────────────────────────────────────────────────────────────
+  String get tabSnapshot    => isEn ? 'Snapshot'            : 'Instantánea';
+  String get tabCumulative  => isEn ? 'Layered'             : 'Capas';
+  String get tabMath        => isEn ? 'Algorithm Math'      : 'Matemáticas';
+
+  // ── Render mode descriptions (moved inside the tabs or math page) ──────
   String get modeDescSnapshot    => isEn
       ? 'Each image shows the target appearance at that stage of detail.'
       : 'Cada imagen muestra el aspecto objetivo en esa etapa de detalle.';
@@ -53,9 +56,26 @@ class AppStrings {
       ? 'Each image builds on the previous — like paint layers on a real canvas.'
       : 'Cada imagen construye sobre la anterior — como capas de pintura en un lienzo real.';
 
+  String get mathIntroTitle => isEn ? 'How does it work?' : '¿Cómo funciona?';
+  String get mathIntroDesc  => isEn 
+      ? 'Rossidifier uses K-Means clustering, edge magnitude calculus, and layered frequency blending to generate these steps.' 
+      : 'Rossidifier utiliza agrupamiento K-Means, cálculo de magnitud de bordes y mezcla de frecuencias por capas para generar estas etapas.';
+  String get mathStep1Title => isEn ? '1. Color Quantization (K-Means)' : '1. Cuantización de Color (K-Means)';
+  String get mathStep1Desc  => isEn 
+      ? 'The image is blurred drastically and processed through an unsupervised Machine Learning algorithm (K-Means) to extract the N most dominant colors. It ignores high-frequency noise and focuses only on mass.'
+      : 'La imagen se desenfoca drásticamente y se procesa a través de un algoritmo de Machine Learning no supervisado (K-Means) para extraer los colores dominantes, ignorando el ruido de alta frecuencia.';
+  String get mathStep2Title => isEn ? '2. Structure and Form (Sobel Operator)' : '2. Estructura y Forma (Operador Sobel)';
+  String get mathStep2Desc  => isEn 
+      ? 'To find edges, we calculate the gradient magnitude of the luminosity using a Sobel kernel convolution. High magnitude defines borders and planes.'
+      : 'Para encontrar bordes, calculamos la magnitud del gradiente de luminosidad usando la convolución del núcleo de Sobel. La magnitud alta define fronteras y planos.';
+  String get mathStep3Title => isEn ? '3. Micro-Contrast Details' : '3. Detalles de Micro-Contraste';
+  String get mathStep3Desc  => isEn 
+      ? 'By subtracting a Gaussian blur from the original image, we isolate the high-frequency band. We then apply conditional rendering exclusively to pixels that deviate significantly from their blurred baseline, capturing tiny highlights and sharp textures.'
+      : 'Restando un desenfoque Gaussiano de la imagen original aislamos la banda de alta frecuencia. Aplicamos renderizado condicional exclusivamente a los píxeles que desvían significativamente, capturando pequeños brillos y texturas.';
+
   // ── GIF Export ────────────────────────────────────────────────────────────
-  String get gifDownload  => isEn ? 'Download GIF' : 'Descargar GIF';
-  String get gifEncoding  => isEn ? 'Encoding…'    : 'Codificando…';
+  String get gifDownload  => isEn ? 'Download Animation (GIF)' : 'Descargar Animación (GIF)';
+  String get gifEncoding  => isEn ? 'Encoding GIF…'            : 'Codificando GIF…';
 
   // ── Painting steps ───────────────────────────────────────────────────────
   String stepTitle(StepKey key) {
