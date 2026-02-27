@@ -149,55 +149,65 @@ class GuideViewModel extends ChangeNotifier {
   }
 
   Future<GuideResult> _callAnalysisApi(Uint8List bytes, {int baseK = 6, List<ColorCluster>? forcedColors}) async {
-    final payload = {
-      'image': base64Encode(bytes),
-      'baseK': baseK,
-      if (forcedColors != null) 'forcedColors': forcedColors.map((c) => {
-        'r': c.r,
-        'g': c.g,
-        'b': c.b,
-        'percentage': c.percentage,
-        'role': c.role,
-      }).toList(),
-    };
+    try {
+      final payload = {
+        'image': base64Encode(bytes),
+        'baseK': baseK,
+        if (forcedColors != null) 'forcedColors': forcedColors.map((c) => {
+          'r': c.r,
+          'g': c.g,
+          'b': c.b,
+          'percentage': c.percentage,
+          'role': c.role,
+        }).toList(),
+      };
 
-    final response = await http.post(
-      Uri.parse('$kApiUrl/analyze'),
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': const String.fromEnvironment('API_KEY'),
-      },
-      body: jsonEncode(payload),
-    );
+      final response = await http.post(
+        Uri.parse('$kApiUrl/analyze'),
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': const String.fromEnvironment('API_KEY'),
+        },
+        body: jsonEncode(payload),
+      ).timeout(const Duration(seconds: 15));
 
-    if (response.statusCode != 200) {
-      throw Exception('Server returned ${response.statusCode}: ${response.body}');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        
+        // Map back to classes
+        final colors = (data['colors'] as List).map((c) => ColorCluster(
+          r: c['r'],
+          g: c['g'],
+          b: c['b'],
+          percentage: c['percentage'],
+          role: c['role'],
+        )).toList();
+
+        final steps = (data['steps'] as List).map((s) => PaintingStep(
+          stepKey: StepKey.values.firstWhere((e) => e.name == s['stepKey']),
+          lightDir: s['lightDir'],
+          lightOpp: s['lightOpp'],
+        )).toList();
+
+        return GuideResult(
+          colors: colors,
+          lightDirection: LightDirection.values.firstWhere((e) => e.name == data['lightDirection']),
+          steps: steps,
+          estimatedTimeMinutes: data['estimatedTimeMinutes'],
+          stepImages: (data['stepImages'] as List).map((s) => base64Decode(s)).toList(),
+          cumulativeStepImages: (data['cumulativeStepImages'] as List).map((s) => base64Decode(s)).toList(),
+        );
+      } else {
+        debugPrint('Server returned ${response.statusCode}: ${response.body}. Falling back to local...');
+      }
+    } catch (e) {
+      debugPrint('API Error: $e. Falling back to local analysis...');
     }
 
-    final data = jsonDecode(response.body);
-    
-    // Map back to classes
-    final colors = (data['colors'] as List).map((c) => ColorCluster(
-      r: c['r'],
-      g: c['g'],
-      b: c['b'],
-      percentage: c['percentage'],
-      role: c['role'],
-    )).toList();
-
-    final steps = (data['steps'] as List).map((s) => PaintingStep(
-      stepKey: StepKey.values.firstWhere((e) => e.name == s['stepKey']),
-      lightDir: s['lightDir'],
-      lightOpp: s['lightOpp'],
-    )).toList();
-
-    return GuideResult(
-      colors: colors,
-      lightDirection: LightDirection.values.firstWhere((e) => e.name == data['lightDirection']),
-      steps: steps,
-      estimatedTimeMinutes: data['estimatedTimeMinutes'],
-      stepImages: (data['stepImages'] as List).map((s) => base64Decode(s)).toList(),
-      cumulativeStepImages: (data['cumulativeStepImages'] as List).map((s) => base64Decode(s)).toList(),
+    // Fallback to local analysis using compute
+    return await compute(
+      ImageAnalyzer.analyzeParams, 
+      AnalysisParams(bytes: bytes, baseK: baseK, forcedColors: forcedColors),
     );
   }
 
