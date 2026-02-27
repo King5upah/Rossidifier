@@ -55,3 +55,9 @@ PreprocessedImage processImageBytes(Uint8List bytes) {
 
   return PreprocessedImage(processed);
 }
+
+/// Helper to fully compress an image for Web/API transmission
+Uint8List compressImageBytes(Uint8List bytes) {
+  final preprocessed = processImageBytes(bytes);
+  return img.encodeJpg(preprocessed.image, quality: 70);
+}

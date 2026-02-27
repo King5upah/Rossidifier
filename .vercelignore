@@ -1,0 +1,14 @@
+# .vercelignore overrides .gitignore for Vercel CLI
+
+# Ignore flutter platform folders
+.dart_tool/
+android/
+ios/
+linux/
+macos/
+windows/
+test/
+.github/
+.idea/
+
+# DO NOT ignore build/web (since we need to upload the compiled frontend)

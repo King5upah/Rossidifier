@@ -38,7 +38,7 @@ class GuideResult {
 }
 
 class GuideGenerator {
-  static GuideResult generate(List<ColorCluster> colors, LightDirection light) {
+  static GuideResult generate(List<ColorCluster> colors, LightDirection light, {int maxColors = 6}) {
     List<PaintingStep> steps = [];
 
     // Assign roles heuristics
@@ -46,11 +46,18 @@ class GuideGenerator {
     if (colors.length > 1) colors[1].role = 'subject';
     if (colors.length > 2) colors[2].role = 'shadow';
     if (colors.length > 3) colors[3].role = 'highlight';
-    if (colors.length > 4) colors[4].role = 'structure';
-    if (colors.length > 5) colors[5].role = 'detail';
+    
+    // Dynamic roles for complex palettes (k > 4)
+    for (int i = 4; i < colors.length; i++) {
+        if (i == colors.length - 1) {
+            colors[i].role = 'detail';
+        } else {
+            colors[i].role = 'structure $i';
+        }
+    }
 
-    // Limit to 6 colors max per constraints
-    final finalColors = colors.take(6).toList();
+    // Limit to baseK/slider selection
+    final finalColors = colors.take(maxColors).toList();
 
     // Precompute direction labels used in step descriptions
     final lightDirEs = LightEstimator.directionToString(light);
@@ -82,13 +89,13 @@ class GuideGenerator {
       ));
     }
 
-    // 5. Structure
-    if (finalColors.length > 4) {
+    // Dynamic Steps for structure layers
+    for (int i = 4; i < finalColors.length - 1; i++) {
       steps.add(PaintingStep(stepKey: StepKey.structure));
     }
 
-    // 6. Fine details
-    if (finalColors.length > 5) {
+    // Final Detail Step
+    if (finalColors.length > 4) {
       steps.add(PaintingStep(stepKey: StepKey.details));
     }
 
@@ -96,7 +103,7 @@ class GuideGenerator {
       colors: finalColors,
       lightDirection: light,
       steps: steps,
-      estimatedTimeMinutes: 45,
+      estimatedTimeMinutes: finalColors.length * 10,
       stepImages: [],
       cumulativeStepImages: [],
     );

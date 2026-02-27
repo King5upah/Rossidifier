@@ -8,19 +8,25 @@ class AppStrings {
   bool get isEn => lang == AppLang.en;
 
   // ── Header ───────────────────────────────────────────────────────────────
-  String get appTitle => 'PaintGuide';
+  String get appTitle => 'Rossidifier';
   String get appSubtitle => isEn
       ? 'From image to acrylic painting, step by step.'
       : 'De imagen a pintura acrílica, paso a paso.';
 
   // ── Upload section ────────────────────────────────────────────────────────
   String get uploadPrompt    => isEn ? 'Select an image'     : 'Selecciona una imagen';
-  String get uploadHint      => isEn ? 'JPG or PNG • Max 10MB' : 'JPG o PNG • Máx 10MB';
+  String get uploadHint      => isEn ? 'JPG or PNG • Max 50MB' : 'JPG o PNG • Máx 50MB';
   String get changeImage     => isEn ? 'Change image'        : 'Cambiar imagen';
+
+  // ── Confirmation Dialog ───────────────────────────────────────────────────
+  String get confirmChangeTitle => isEn ? 'Change Image?' : '¿Cambiar imagen?';
+  String get confirmChangeDesc  => isEn ? 'Are you sure you want to discard the current image and start over?' : '¿Estás seguro que deseas descartar la imagen actual y comenzar de nuevo?';
+  String get confirmYes         => isEn ? 'Yes, change it' : 'Sí, cambiarla';
+  String get confirmCancel      => isEn ? 'Cancel' : 'Cancelar';
 
   // ── Demo row ────────────────────────────────────────────────────────────
   String get demoLabel       => isEn ? 'Or try a demo'       : 'O prueba una demo';
-  String get demoAnime       => isEn ? 'Anime figure'        : 'Figura anime';
+  String get demoAnime       => isEn ? 'Figure'              : 'Figura';
   String get demoMexico      => isEn ? 'Angel of Independence': 'Ángel de la Independencia';
   String get demoSeattle     => isEn ? 'Seattle at sunrise'  : 'Seattle al amanecer';
 
@@ -36,7 +42,7 @@ class AppStrings {
 
   // ── Errors ────────────────────────────────────────────────────────────────
   String get errorNoRead     => isEn ? 'Could not read the image.' : 'No se pudo leer la imagen.';
-  String get errorTooLarge   => isEn ? 'Image exceeds the 10MB limit.' : 'La imagen excede el límite de 10MB.';
+  String get errorTooLarge   => isEn ? 'Image exceeds the 50MB limit.' : 'La imagen excede el límite de 50MB.';
   String get errorGeneral    => isEn ? 'Error analysing the image. It may be too large or corrupt.' : 'Error al analizar la imagen. Quizá sea muy grande o corrupta.';
   String get errorDemoLoad   => isEn ? 'Could not load the demo image.' : 'No se pudo cargar la imagen demo.';
 
@@ -46,7 +52,7 @@ class AppStrings {
   // ── Tabs ────────────────────────────────────────────────────────────────
   String get tabSnapshot    => isEn ? 'Snapshot'            : 'Instantánea';
   String get tabCumulative  => isEn ? 'Layered'             : 'Capas';
-  String get tabMath        => isEn ? 'Algorithm Math'      : 'Matemáticas';
+  String get tabMath        => isEn ? 'About/Engineering'   : 'Acerca de/Ingeniería';
 
   // ── Render mode descriptions (moved inside the tabs or math page) ──────
   String get modeDescSnapshot    => isEn
@@ -56,22 +62,22 @@ class AppStrings {
       ? 'Each image builds on the previous — like paint layers on a real canvas.'
       : 'Cada imagen construye sobre la anterior — como capas de pintura en un lienzo real.';
 
-  String get mathIntroTitle => isEn ? 'How does it work?' : '¿Cómo funciona?';
+  String get mathIntroTitle => isEn ? 'The Engineering Behind Rossidifier' : 'La Ingeniería Detrás de Rossidifier';
   String get mathIntroDesc  => isEn 
-      ? 'Rossidifier uses K-Means clustering, edge magnitude calculus, and layered frequency blending to generate these steps.' 
-      : 'Rossidifier utiliza agrupamiento K-Means, cálculo de magnitud de bordes y mezcla de frecuencias por capas para generar estas etapas.';
-  String get mathStep1Title => isEn ? '1. Color Quantization (K-Means)' : '1. Cuantización de Color (K-Means)';
+      ? 'Rossidifier strips away the complexity of a photograph to emulate the human cognitive process of painting. Instead of applying basic filters, it uses unsupervised machine learning, edge detection convolutions, and frequency separation to calculate structural masses just like a master painter dissects a subject.' 
+      : 'Rossidifier elimina la complejidad de una fotografía para emular el proceso cognitivo humano de pintar. En lugar de aplicar filtros básicos, utiliza aprendizaje automático no supervisado, convoluciones de detección de bordes y separación de frecuencias para calcular masas estructurales tal como un maestro pintor disecciona un sujeto.';
+  String get mathStep1Title => isEn ? '1. Color Quantization (K-Means Clustering)' : '1. Cuantización de Color (Agrupamiento K-Means)';
   String get mathStep1Desc  => isEn 
-      ? 'The image is blurred drastically and processed through an unsupervised Machine Learning algorithm (K-Means) to extract the N most dominant colors. It ignores high-frequency noise and focuses only on mass.'
-      : 'La imagen se desenfoca drásticamente y se procesa a través de un algoritmo de Machine Learning no supervisado (K-Means) para extraer los colores dominantes, ignorando el ruido de alta frecuencia.';
-  String get mathStep2Title => isEn ? '2. Structure and Form (Sobel Operator)' : '2. Estructura y Forma (Operador Sobel)';
+      ? 'The image is drastically simplified via a K-Means iterative algorithm. Every pixel is plotted in a 3D RGB color space. The algorithm identifies the N most dominant "centroids" (the underlying palette) and shifts all surrounding gradients to their nearest centroid. This creates the flat, blocked-in foundation.'
+      : 'La imagen se simplifica drásticamente mediante un algoritmo iterativo K-Means. Cada píxel se traza en un espacio de color RGB 3D. El algoritmo identifica los N "centroides" más dominantes (la paleta subyacente) y desplaza todos los gradientes circundantes a su centroide más cercano. Esto crea la base plana y bloqueada.';
+  String get mathStep2Title => isEn ? '2. Structure mapping (Sobel Operator)' : '2. Mapeo de Estructura (Operador Sobel)';
   String get mathStep2Desc  => isEn 
-      ? 'To find edges, we calculate the gradient magnitude of the luminosity using a Sobel kernel convolution. High magnitude defines borders and planes.'
-      : 'Para encontrar bordes, calculamos la magnitud del gradiente de luminosidad usando la convolución del núcleo de Sobel. La magnitud alta define fronteras y planos.';
-  String get mathStep3Title => isEn ? '3. Micro-Contrast Details' : '3. Detalles de Micro-Contraste';
+      ? 'To construct the drawing logic, the engine generates a luminosity map. We then apply a discrete differentiation operator (Sobel kernel) via matrix convolution. Areas with a high gradient magnitude become structural lines, highlighting major planes and facial contours.'
+      : 'Para construir la lógica de dibujo, el motor genera un mapa de luminosidad. Luego aplicamos un operador de diferenciación discreta (núcleo de Sobel) mediante convolución de matrices. Las áreas con una alta magnitud de gradiente se convierten en líneas estructurales, resaltando los planos principales y contornos faciales.';
+  String get mathStep3Title => isEn ? '3. High-Frequency Micro-Contrast' : '3. Micro-Contraste de Alta Frecuencia';
   String get mathStep3Desc  => isEn 
-      ? 'By subtracting a Gaussian blur from the original image, we isolate the high-frequency band. We then apply conditional rendering exclusively to pixels that deviate significantly from their blurred baseline, capturing tiny highlights and sharp textures.'
-      : 'Restando un desenfoque Gaussiano de la imagen original aislamos la banda de alta frecuencia. Aplicamos renderizado condicional exclusivamente a los píxeles que desvían significativamente, capturando pequeños brillos y texturas.';
+      ? 'The final pass involves Unsharp Masking mathematics to extract pure details. We subtract a heavily blurred (Gaussian) matrix from the sharp original matrix. We then apply a conditional threshold, painting only the pixels whose luminance significantly deviates from their local baseline. This perfectly captures specular highlights, thin hair, and sharp textures.'
+      : 'El paso final implica matemáticas de Unsharp Masking para extraer detalles puros. Restamos una matriz fuertemente desenfocada (Gaussiana) de la matriz original nítida. Luego aplicamos un umbral condicional, pintando solo los píxeles cuya luminancia se desvía significativamente de su línea base local. Esto captura perfectamente los brillos especulares, cabello fino y texturas nítidas.';
 
   // ── GIF Export ────────────────────────────────────────────────────────────
   String get gifDownload  => isEn ? 'Download Animation (GIF)' : 'Descargar Animación (GIF)';
