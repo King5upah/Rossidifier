@@ -1,3 +1,7 @@
+
+import 'dart:math' as math;
+import 'package:codeglyphs/src/codeglyph_view.dart';
+import 'package:codeglyphs/src/theme.dart';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 // ignore: avoid_web_libraries_in_flutter
@@ -5,9 +9,13 @@ import 'dart:html' as html;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 
 import 'core/guide_view_model.dart';
 import 'core/guide_generator.dart';
+import 'core/pdf_generator.dart';
+import 'core/painting_utils.dart';
 import 'core/app_strings.dart';
 import 'core/gif_encoder_isolate.dart';
 
@@ -17,6 +25,8 @@ import 'package:sandblaster/components/glass_toggle_chip.dart';
 import 'package:sandblaster/components/glass_card.dart';
 import 'package:sandblaster/components/glass_button.dart';
 import 'package:sandblaster/widgets/liquid_glass_container.dart';
+import 'package:codeglyphs/src/codeglyph_view.dart';
+import 'package:codeglyphs/src/theme.dart';
 
 void main() {
   runApp(const PaintGuideApp());
@@ -30,13 +40,14 @@ class PaintGuideApp extends StatelessWidget {
     return MaterialApp(
       title: 'PaintGuide',
       debugShowCheckedModeBanner: false,
-      theme: LiquidGlassTheme.themeData,
+      theme: LiquidGlassTheme.inkyTheme,
       home: const GuideHomePage(),
     );
   }
 }
 
-enum ResultTab { snapshot, cumulative, math }
+enum AppTab { guide, about }
+enum ResultTab { snapshot, cumulative }
 
 class GuideHomePage extends StatefulWidget {
   const GuideHomePage({super.key});
@@ -48,14 +59,16 @@ class GuideHomePage extends StatefulWidget {
 class _GuideHomePageState extends State<GuideHomePage> {
   final GuideViewModel _viewModel = GuideViewModel();
   final ValueNotifier<AppLang> _lang = ValueNotifier(AppLang.en);
-  final ValueNotifier<ResultTab> _selectedTab = ValueNotifier(ResultTab.cumulative);
+  final ValueNotifier<AppTab> _selectedAppTab = ValueNotifier(AppTab.guide);
+  final ValueNotifier<ResultTab> _selectedResultTab = ValueNotifier(ResultTab.cumulative);
   final ValueNotifier<bool> _encodingGif   = ValueNotifier(false);
 
   @override
   void dispose() {
     _viewModel.dispose();
     _lang.dispose();
-    _selectedTab.dispose();
+    _selectedAppTab.dispose();
+    _selectedResultTab.dispose();
     _encodingGif.dispose();
     super.dispose();
   }
@@ -64,7 +77,7 @@ class _GuideHomePageState extends State<GuideHomePage> {
     if (_encodingGif.value) return;
     _encodingGif.value = true;
     try {
-      final images = _selectedTab.value == ResultTab.cumulative
+      final images = _selectedResultTab.value == ResultTab.cumulative
           ? guide.cumulativeStepImages
           : guide.stepImages;
       if (images.isEmpty) return;
@@ -94,77 +107,203 @@ class _GuideHomePageState extends State<GuideHomePage> {
         return ListenableBuilder(
           listenable: _viewModel,
           builder: (context, _) {
+            final isMobile = MediaQuery.of(context).size.width < 750;
+
             return Scaffold(
-              backgroundColor: LiquidGlassTheme.bgDeep,
+              backgroundColor: context.sbTheme.bgDeep,
               body: AnimatedBackground(
                 child: Stack(
                   children: [
                     SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
-                    child: Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 800),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            // ── Language toggle ──────────────────────────
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Text('EN', style: TextStyle(color: LiquidGlassTheme.textSecondary, fontWeight: FontWeight.w600, fontSize: 13)),
-                                  const SizedBox(width: 8),
-                                  GlassToggle(
-                                    value: lang == AppLang.es,
-                                    onChanged: (isEs) => _lang.value = isEs ? AppLang.es : AppLang.en,
+                      physics: const BouncingScrollPhysics(),
+                      child: SafeArea(
+                        bottom: true, // Crucial for mobile browser bars
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: isMobile ? 12 : 24, 
+                            vertical: isMobile ? 16 : 32
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              // ── Header ──────────────────────────────────────────────
+                              if (isMobile)
+                                Column(
+                                  children: [
+                                    Text(
+                                      s.appTitle,
+                                      style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                                        color: context.sbTheme.textPrimary,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: -1,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      s.appSubtitle,
+                                      textAlign: TextAlign.center,
+                                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                        color: context.sbTheme.textSecondary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 24),
+                                    ValueListenableBuilder<AppTab>(
+                                      valueListenable: _selectedAppTab,
+                                      builder: (context, currentTab, _) {
+                                        return Container(
+                                          decoration: BoxDecoration(
+                                            color: Colors.black.withOpacity(0.2),
+                                            borderRadius: BorderRadius.circular(LiquidGlassTheme.radiusMd),
+                                            border: Border.all(color: Colors.white.withOpacity(0.05)),
+                                          ),
+                                          padding: const EdgeInsets.all(4),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              _buildAppTab(AppTab.guide, lang == AppLang.en ? 'Rossifier: What r we painting today' : 'Rossifier: ¿Qué pintamos hoy?', Icons.format_paint_rounded, currentTab == AppTab.guide),
+                                              _buildAppTab(AppTab.about, s.tabMath, Icons.functions_rounded, currentTab == AppTab.about),
+                                            ],
+                                          ),
+                                        );
+                                      }
+                                    ),
+                                    const SizedBox(height: 24),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Text('EN', style: TextStyle(color: context.sbTheme.textSecondary, fontWeight: FontWeight.w600, fontSize: 13)),
+                                        const SizedBox(width: 8),
+                                        GlassToggle(
+                                          value: lang == AppLang.es,
+                                          activeTrackColor: context.sbTheme.orbEmerald,
+                                          activeThumbIcon: const Icon(Icons.language, size: 12, color: Colors.black),
+                                          inactiveThumbIcon: const Icon(Icons.language, size: 12, color: Colors.white),
+                                          onChanged: (isEs) => _lang.value = isEs ? AppLang.es : AppLang.en,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text('ES', style: TextStyle(color: context.sbTheme.textSecondary, fontWeight: FontWeight.w600, fontSize: 13)),
+                                      ],
+                                    ),
+                                  ],
+                                )
+                              else
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            s.appTitle,
+                                            style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                                              color: context.sbTheme.textPrimary,
+                                              fontWeight: FontWeight.bold,
+                                              letterSpacing: -1,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            s.appSubtitle,
+                                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                              color: context.sbTheme.textSecondary,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  // Top-Right Global Tabs
+                                  ValueListenableBuilder<AppTab>(
+                                    valueListenable: _selectedAppTab,
+                                    builder: (context, currentTab, _) {
+                                      return Container(
+                                        decoration: BoxDecoration(
+                                          color: Colors.black.withOpacity(0.2),
+                                          borderRadius: BorderRadius.circular(LiquidGlassTheme.radiusMd),
+                                          border: Border.all(color: Colors.white.withOpacity(0.05)),
+                                        ),
+                                        padding: const EdgeInsets.all(4),
+                                        child: Row(
+                                          children: [
+                                            _buildAppTab(AppTab.guide, lang == AppLang.en ? 'PaintGuide App' : 'App PaintGuide', Icons.format_paint_rounded, currentTab == AppTab.guide),
+                                            _buildAppTab(AppTab.about, s.tabMath, Icons.functions_rounded, currentTab == AppTab.about),
+                                          ],
+                                        ),
+                                      );
+                                    }
                                   ),
-                                  const SizedBox(width: 8),
-                                  const Text('ES', style: TextStyle(color: LiquidGlassTheme.textSecondary, fontWeight: FontWeight.w600, fontSize: 13)),
+                                  const SizedBox(width: 24),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text('EN', style: TextStyle(color: context.sbTheme.textSecondary, fontWeight: FontWeight.w600, fontSize: 13)),
+                                      const SizedBox(width: 8),
+                                      GlassToggle(
+                                        value: lang == AppLang.es,
+                                        activeTrackColor: context.sbTheme.orbEmerald,
+                                        activeThumbIcon: const Icon(Icons.language, size: 12, color: Colors.black),
+                                        inactiveThumbIcon: const Icon(Icons.language, size: 12, color: Colors.white),
+                                        onChanged: (isEs) => _lang.value = isEs ? AppLang.es : AppLang.en,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text('ES', style: TextStyle(color: context.sbTheme.textSecondary, fontWeight: FontWeight.w600, fontSize: 13)),
+                                    ],
+                                  ),
                                 ],
                               ),
-                            ),
-                            const SizedBox(height: 16),
-                            // ── Title ───────────────────────────────────
-                            Text(
-                              s.appTitle,
-                              style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                                color: LiquidGlassTheme.textPrimary,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -1,
+                              const SizedBox(height: 48),
+
+                              ValueListenableBuilder<AppTab>(
+                                valueListenable: _selectedAppTab,
+                                builder: (context, appTab, _) {
+                                  if (appTab == AppTab.about) {
+                                    return Align(
+                                      alignment: Alignment.topCenter,
+                                      child: ConstrainedBox(
+                                        constraints: const BoxConstraints(maxWidth: 800),
+                                        child: _buildMathExplanation(s),
+                                      ),
+                                    );
+                                  }
+
+                                  return Column(
+                                    children: [
+                                      if (_viewModel.errorMessage != null)
+                                        Container(
+                                          margin: const EdgeInsets.only(bottom: 24),
+                                          padding: const EdgeInsets.all(16),
+                                          decoration: BoxDecoration(
+                                            color: Colors.red.shade50.withOpacity(0.1),
+                                            borderRadius: BorderRadius.circular(12),
+                                            border: Border.all(color: Colors.red.withOpacity(0.3)),
+                                          ),
+                                          child: Text(
+                                            _viewModel.errorMessage!,
+                                            style: TextStyle(color: Colors.red.shade200),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ),
+                                      
+                                      // Always show upload section if we have an image or are not results-loaded
+                                      Center(child: _buildUploadSection(s)),
+                                      
+                                      if (_viewModel.guideResult == null && !_viewModel.isProcessing) ...[
+                                        const SizedBox(height: 24),
+                                        _buildDemoRow(s),
+                                      ],
+                                      
+                                      if (_viewModel.guideResult != null) ...[
+                                        const SizedBox(height: 48),
+                                        _buildResultsSection(_viewModel.guideResult!, s),
+                                      ],
+                                      
+                                      // If processing but no guide yet, show the demo row or a spacer to prevent layout jumping
+                                      if (_viewModel.isProcessing && _viewModel.guideResult == null)
+                                        const SizedBox(height: 200),
+                                    ],
+                                  );
+                                },
                               ),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              s.appSubtitle,
-                              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                color: LiquidGlassTheme.textSecondary,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 48),
-                            if (_viewModel.errorMessage != null)
-                              Container(
-                                margin: const EdgeInsets.only(bottom: 24),
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: Colors.red.shade50,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(
-                                  _viewModel.errorMessage!,
-                                  style: TextStyle(color: Colors.red.shade800),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            Center(child: _buildUploadSection(s)),
-                            const SizedBox(height: 24),
-                            _buildDemoRow(s),
-                              if (_viewModel.guideResult != null) ...[
-                                const SizedBox(height: 48),
-                                _buildResultsSection(_viewModel.guideResult!, s),
-                              ],
                               const SizedBox(height: 80),
                               // ── Footer ───────────────────────────────────────────
                               Column(
@@ -172,7 +311,7 @@ class _GuideHomePageState extends State<GuideHomePage> {
                                   Text(
                                     'Built with ❤️ by Rodo 2026',
                                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                      color: LiquidGlassTheme.textSecondary,
+                                      color: context.sbTheme.textSecondary,
                                     ),
                                     textAlign: TextAlign.center,
                                   ),
@@ -184,9 +323,9 @@ class _GuideHomePageState extends State<GuideHomePage> {
                                       child: Text(
                                         'Blasted with Sand',
                                         style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                                          color: LiquidGlassTheme.accent,
+                                          color: context.sbTheme.accent,
                                           decoration: TextDecoration.underline,
-                                          decorationColor: LiquidGlassTheme.accent,
+                                          decorationColor: context.sbTheme.accent,
                                         ),
                                         textAlign: TextAlign.center,
                                       ),
@@ -194,7 +333,7 @@ class _GuideHomePageState extends State<GuideHomePage> {
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 24),
+                              const SizedBox(height: 100), // Extra space to scroll past mobile navigation bars
                           ],
                         ),
                       ),
@@ -219,15 +358,17 @@ class _GuideHomePageState extends State<GuideHomePage> {
   }
 
   Widget _buildUploadSection(AppStrings s) {
-    return AnimatedContainer(
+    final bool hasImage = _viewModel.selectedImageBytes != null;
+
+    Widget content = AnimatedContainer(
       duration: const Duration(milliseconds: 300),
-      constraints: BoxConstraints(
+      constraints: const BoxConstraints(
         maxWidth: 600,
         minHeight: 200,
-        maxHeight: _viewModel.guideResult != null ? 350 : 350,
+        maxHeight: 350,
       ),
       child: LiquidGlassContainer(
-        onTap: _viewModel.isProcessing ? null : _viewModel.pickAndProcessImage,
+        onTap: (hasImage || _viewModel.isProcessing) ? null : _viewModel.pickAndProcessImage,
         padding: EdgeInsets.zero,
         borderRadius: LiquidGlassTheme.radiusLg,
         child: ClipRRect(
@@ -236,30 +377,91 @@ class _GuideHomePageState extends State<GuideHomePage> {
         ),
       ),
     );
+
+    if (hasImage && !_viewModel.isProcessing) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          content,
+          const SizedBox(height: 16),
+          GlassButton(
+            label: s.changeImage,
+            icon: Icons.replay_rounded,
+            onPressed: () => _confirmAndChangeImage(s),
+          ),
+        ],
+      );
+    }
+
+    return content;
+  }
+
+  void _confirmAndChangeImage(AppStrings s) {
+    showDialog(
+      context: context,
+      builder: (BuildContext ctx) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 400),
+            child: LiquidGlassContainer(
+              padding: const EdgeInsets.all(24),
+              borderRadius: LiquidGlassTheme.radiusLg,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.warning_amber_rounded, size: 48, color: Colors.orange.shade300),
+                  const SizedBox(height: 16),
+                  Text(
+                    s.confirmChangeTitle,
+                    style: Theme.of(ctx).textTheme.titleLarge?.copyWith(
+                      color: ctx.sbTheme.textPrimary,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    s.confirmChangeDesc,
+                    style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
+                      color: ctx.sbTheme.textSecondary,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 32),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      GlassButton(
+                        label: s.confirmCancel,
+                        onPressed: () => Navigator.of(ctx).pop(),
+                      ),
+                      const SizedBox(width: 12),
+                      GlassButton(
+                        label: s.confirmYes,
+                        onPressed: () {
+                          Navigator.of(ctx).pop();
+                          _viewModel.pickAndProcessImage();
+                        },
+                        accentColor: Colors.deepOrange,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Widget _buildUploadContent(AppStrings s, BuildContext context) {
     if (_viewModel.selectedImageBytes != null) {
-      return Stack(
-        fit: StackFit.expand,
-        children: [
-          Image.memory(
-            _viewModel.selectedImageBytes!,
-            fit: BoxFit.contain,
-          ),
-          if (!_viewModel.isProcessing)
-            Positioned.fill(
-              child: Container(
-                color: Colors.black.withOpacity(0.5),
-                child: Center(
-                  child: GlassChip(
-                    label: s.changeImage,
-                    icon: Icons.edit,
-                  ),
-                ),
-              ),
-            ),
-        ],
+      return Image.memory(
+        _viewModel.selectedImageBytes!,
+        fit: BoxFit.contain,
       );
     }
 
@@ -269,16 +471,16 @@ class _GuideHomePageState extends State<GuideHomePage> {
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-        const Icon(
+        Icon(
           Icons.cloud_upload_outlined,
           size: 64,
-          color: LiquidGlassTheme.accent,
+          color: context.sbTheme.accent,
         ),
         const SizedBox(height: 24),
         Text(
           s.uploadPrompt,
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
-            color: LiquidGlassTheme.textPrimary,
+            color: context.sbTheme.textPrimary,
           ),
           textAlign: TextAlign.center,
         ),
@@ -286,13 +488,43 @@ class _GuideHomePageState extends State<GuideHomePage> {
         Text(
           s.uploadHint,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: LiquidGlassTheme.textTertiary,
+            color: context.sbTheme.textTertiary,
           ),
           textAlign: TextAlign.center,
         ),
+        const SizedBox(height: 16),
+        ListenableBuilder(
+          listenable: _viewModel,
+          builder: (context, _) => Column(
+            children: [
+              Text(
+                '🎨 Detail Level: ${_viewModel.complexity} Colors',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: context.sbTheme.textSecondary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              SizedBox(
+                width: 250,
+                child: CupertinoSlider(
+                  value: _viewModel.complexity.toDouble(),
+                  min: 3,
+                  max: 10,
+                  divisions: 7,
+                  activeColor: context.sbTheme.orbCyan,
+                  thumbColor: Colors.white,
+                  onChanged: (val) {
+                    _viewModel.setComplexity(val.toInt());
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
       ],
-    );
-  }
+    ),
+  );
+}
 
   static const _demos = [
     (
@@ -320,19 +552,22 @@ class _GuideHomePageState extends State<GuideHomePage> {
         Text(
           s.demoLabel,
           style: Theme.of(context).textTheme.labelMedium?.copyWith(
-            color: LiquidGlassTheme.textSecondary,
+            color: context.sbTheme.textSecondary,
           ),
         ),
         const SizedBox(height: 12),
-        Row(
-          children: _demos.asMap().entries.map((e) => Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(right: 10),
-              child: _buildDemoCard(labels[e.key], e.value.emoji, e.value.url),
-            ),
+      Center(
+        child: Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          alignment: WrapAlignment.center,
+          children: _demos.asMap().entries.map((e) => SizedBox(
+            width: 140, // Fixed width to ensure nice grid behavior on Wrap
+            child: _buildDemoCard(labels[e.key], e.value.emoji, e.value.url),
           )).toList(),
         ),
-      ],
+      ),
+    ],
     );
   }
 
@@ -364,7 +599,7 @@ class _GuideHomePageState extends State<GuideHomePage> {
                   child: Text(
                     label,
                     style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: LiquidGlassTheme.textSecondary,
+                      color: context.sbTheme.textSecondary,
                     ),
                     maxLines: 2,
                     textAlign: TextAlign.center,
@@ -384,40 +619,46 @@ class _GuideHomePageState extends State<GuideHomePage> {
         Text(
           s.paletteTitle,
           style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-            color: LiquidGlassTheme.textPrimary,
+            color: context.sbTheme.textPrimary,
           ),
         ),
         const SizedBox(height: 16),
         Wrap(
           spacing: 12,
           runSpacing: 12,
-          children: guide.colors.map((c) {
+          children: guide.colors.asMap().entries.map((entry) {
+            final int index = entry.key;
+            final c = entry.value;
             Color color = Color.fromRGBO(c.r, c.g, c.b, 1.0);
-            return _buildColorSwatch(c.hexColor, color, c.role ?? 'color');
+            return _buildColorSwatch(c.hexColor, color, c.role ?? 'color', index);
           }).toList(),
         ),
         const SizedBox(height: 48),
         // ── Strategy header ────────
-        Text(
-          s.guideTitle,
-          style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-            color: LiquidGlassTheme.textPrimary,
-          ),
-        ),
-        const SizedBox(height: 24),
-        ValueListenableBuilder<ResultTab>(
-          valueListenable: _selectedTab,
-          builder: (context, tab, _) => _buildTabSelector(s, tab),
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          runAlignment: WrapAlignment.center,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 16,
+          runSpacing: 16,
+          children: [
+            Text(
+              s.guideTitle,
+              style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                color: context.sbTheme.textPrimary,
+              ),
+            ),
+            ValueListenableBuilder<ResultTab>(
+              valueListenable: _selectedResultTab,
+              builder: (context, tab, _) => _buildResultTabSelector(s, tab),
+            ),
+          ]
         ),
         const SizedBox(height: 24),
         // ── Tab Content ─────────────────────────────────
         ValueListenableBuilder<ResultTab>(
-          valueListenable: _selectedTab,
+          valueListenable: _selectedResultTab,
           builder: (context, tab, _) {
-            if (tab == ResultTab.math) {
-              return _buildMathExplanation(s);
-            }
-
             final isCumulative = tab == ResultTab.cumulative;
             final images = isCumulative
                 ? guide.cumulativeStepImages
@@ -432,7 +673,7 @@ class _GuideHomePageState extends State<GuideHomePage> {
                   child: Text(
                     isCumulative ? s.modeDescCumulative : s.modeDescSnapshot,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: LiquidGlassTheme.textTertiary,
+                      color: context.sbTheme.textTertiary,
                     ),
                   ),
                 ),
@@ -460,12 +701,24 @@ class _GuideHomePageState extends State<GuideHomePage> {
                 ValueListenableBuilder<bool>(
                   valueListenable: _encodingGif,
                   builder: (context, encoding, _) {
-                    return GlassButton(
-                      label: encoding ? s.gifEncoding : s.gifDownload,
-                      icon: encoding ? null : Icons.download_rounded,
-                      loading: encoding,
-                      onPressed: encoding ? null : () => _downloadGif(guide),
-                      accentColor: LiquidGlassTheme.orbCyan,
+                    return Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: [
+                        GlassButton(
+                          label: encoding ? s.gifEncoding : s.gifDownload,
+                          icon: encoding ? null : Icons.download_rounded,
+                          loading: encoding,
+                          onPressed: encoding ? null : () => _downloadGif(guide),
+                          accentColor: context.sbTheme.orbCyan,
+                        ),
+                        GlassButton(
+                          label: 'Export PDF',
+                          icon: Icons.picture_as_pdf_rounded,
+                          onPressed: () => PdfGenerator.exportGuide(guide, s),
+                          accentColor: context.sbTheme.orbPink,
+                        ),
+                      ],
                     );
                   },
                 ),
@@ -477,44 +730,77 @@ class _GuideHomePageState extends State<GuideHomePage> {
     );
   }
 
-  Widget _buildTab(ResultTab tab, String label, IconData icon, bool isActive) {
-    return Expanded(
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
-          onTap: () => _selectedTab.value = tab,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            decoration: BoxDecoration(
-              color: isActive ? LiquidGlassTheme.glassSurface : Colors.transparent,
-              borderRadius: BorderRadius.circular(LiquidGlassTheme.radiusSm),
-              border: Border.all(
-                color: isActive ? LiquidGlassTheme.glassBorder : Colors.transparent,
-                width: 1,
-              ),
+  Widget _buildAppTab(AppTab tab, String label, IconData icon, bool isActive) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: () => _selectedAppTab.value = tab,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          decoration: BoxDecoration(
+            color: isActive ? context.sbTheme.glassSurface : Colors.transparent,
+            borderRadius: BorderRadius.circular(LiquidGlassTheme.radiusSm),
+            border: Border.all(
+              color: isActive ? context.sbTheme.glassBorder : Colors.transparent,
+              width: 1,
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, size: 18, color: isActive ? LiquidGlassTheme.textPrimary : LiquidGlassTheme.textTertiary),
-                const SizedBox(width: 8),
-                Text(
-                  label,
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: isActive ? LiquidGlassTheme.textPrimary : LiquidGlassTheme.textTertiary,
-                    fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
-                  ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 18, color: isActive ? context.sbTheme.textPrimary : context.sbTheme.textTertiary),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: isActive ? context.sbTheme.textPrimary : context.sbTheme.textTertiary,
+                  fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _buildTabSelector(AppStrings s, ResultTab activeTab) {
+  Widget _buildResultTab(ResultTab tab, String label, IconData icon, bool isActive) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: () => _selectedResultTab.value = tab,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+          decoration: BoxDecoration(
+            color: isActive ? context.sbTheme.glassSurface : Colors.transparent,
+            borderRadius: BorderRadius.circular(LiquidGlassTheme.radiusSm),
+            border: Border.all(
+              color: isActive ? context.sbTheme.glassBorder : Colors.transparent,
+              width: 1,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 18, color: isActive ? context.sbTheme.textPrimary : context.sbTheme.textTertiary),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: isActive ? context.sbTheme.textPrimary : context.sbTheme.textTertiary,
+                  fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildResultTabSelector(AppStrings s, ResultTab activeTab) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.black.withOpacity(0.2),
@@ -523,10 +809,10 @@ class _GuideHomePageState extends State<GuideHomePage> {
       ),
       padding: const EdgeInsets.all(4),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          _buildTab(ResultTab.snapshot, s.tabSnapshot, Icons.layers_clear_rounded, activeTab == ResultTab.snapshot),
-          _buildTab(ResultTab.cumulative, s.tabCumulative, Icons.layers_rounded, activeTab == ResultTab.cumulative),
-          _buildTab(ResultTab.math, s.tabMath, Icons.functions_rounded, activeTab == ResultTab.math),
+          _buildResultTab(ResultTab.snapshot, s.tabSnapshot, Icons.layers_clear_rounded, activeTab == ResultTab.snapshot),
+          _buildResultTab(ResultTab.cumulative, s.tabCumulative, Icons.layers_rounded, activeTab == ResultTab.cumulative),
         ],
       ),
     );
@@ -539,88 +825,117 @@ class _GuideHomePageState extends State<GuideHomePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(s.mathIntroTitle, style: Theme.of(context).textTheme.headlineMedium?.copyWith(color: LiquidGlassTheme.textPrimary, fontWeight: FontWeight.bold)),
+          Text(s.mathIntroTitle, style: Theme.of(context).textTheme.headlineMedium?.copyWith(color: context.sbTheme.textPrimary, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
-          Text(s.mathIntroDesc, style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: LiquidGlassTheme.textSecondary, height: 1.5)),
+          Text(s.mathIntroDesc, style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: context.sbTheme.textSecondary, height: 1.5)),
           const SizedBox(height: 32),
-          _buildMathStep(s.mathStep1Title, s.mathStep1Desc, Icons.color_lens_rounded),
-          _buildMathStep(s.mathStep2Title, s.mathStep2Desc, Icons.architecture_rounded),
-          _buildMathStep(s.mathStep3Title, s.mathStep3Desc, Icons.blur_on_rounded),
+          _buildMathStep(s.mathStep1Title, s.mathStep1Desc, Icons.color_lens_rounded, codeSnippet: _kMeansSnippet),
+          _buildMathStep(s.mathStep2Title, s.mathStep2Desc, Icons.architecture_rounded, codeSnippet: _sobelSnippet),
+          _buildMathStep(s.mathStep3Title, s.mathStep3Desc, Icons.blur_on_rounded, codeSnippet: _microContrastSnippet),
         ],
       ),
     );
   }
 
-  Widget _buildMathStep(String title, String desc, IconData icon) {
+  Widget _buildMathStep(String title, String desc, IconData icon, {String? codeSnippet}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 24),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: LiquidGlassTheme.cardSurface,
-              shape: BoxShape.circle,
-              border: Border.all(color: LiquidGlassTheme.glassBorder),
-            ),
-            child: Icon(icon, color: LiquidGlassTheme.orbCyan, size: 24),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: context.sbTheme.glassSurface,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: context.sbTheme.glassBorder),
+                ),
+                child: Icon(icon, color: context.sbTheme.orbCyan, size: 24),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(color: context.sbTheme.textPrimary, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 6),
+                    Text(desc, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: context.sbTheme.textTertiary, height: 1.5)),
+                  ],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(color: LiquidGlassTheme.textPrimary, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 6),
-                Text(desc, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: LiquidGlassTheme.textTertiary, height: 1.5)),
-              ],
+          if (codeSnippet != null) ...[
+            const SizedBox(height: 16),
+            CodeglyphView(
+              code: codeSnippet,
+              language: 'dart',
+              theme: CodeglyphTheme.voidCentury,
             ),
-          ),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildColorSwatch(String hex, Color color, String role) {
+  Widget _buildColorSwatch(String hex, Color color, String role, int index) {
     // Determine text color based on background luminance for visibility
     double luminance = color.computeLuminance();
     Color textColor = luminance > 0.5 ? Colors.black87 : Colors.white;
 
-    return Container(
-      width: 100,
-      height: 100,
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(LiquidGlassTheme.radiusLg),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
-        boxShadow: [
-          BoxShadow(
-            color: color.withOpacity(0.3),
-            blurRadius: 15,
-            spreadRadius: -5,
-            offset: const Offset(0, 8),
-          )
-        ],
-      ),
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          Text(
-            hex,
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: () => _showColorPickerOptions(context, index, color),
+        child: Container(
+          width: 130, // Wider for text
+          height: 110, // Taller for text
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(LiquidGlassTheme.radiusLg),
+            border: Border.all(color: Colors.white.withOpacity(0.1)),
+            boxShadow: [
+              BoxShadow(
+                color: color.withOpacity(0.3),
+                blurRadius: 15,
+                spreadRadius: -5,
+                offset: const Offset(0, 8),
+              )
+            ],
+          ),
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Text(
+                hex,
             style: TextStyle(
               color: textColor,
               fontWeight: FontWeight.bold,
               fontSize: 14,
             ),
           ),
+          const SizedBox(height: 2),
+          Text(
+            PaintingUtils.getPaintMix(color),
+            style: TextStyle(
+              color: textColor.withOpacity(0.9),
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 2),
           Text(
             role,
             style: TextStyle(
-              color: textColor.withOpacity(0.8),
-              fontSize: 11,
+              color: textColor.withOpacity(0.6),
+              fontSize: 9,
               fontWeight: FontWeight.w500,
             ),
             maxLines: 1,
@@ -628,6 +943,47 @@ class _GuideHomePageState extends State<GuideHomePage> {
           ),
         ],
       ),
+        ),
+      ),
+    );
+  }
+
+  void _showColorPickerOptions(BuildContext context, int index, Color currentColor) {
+    Color selectedColor = currentColor;
+    showDialog(
+      context: context,
+      builder: (BuildContext ctx) {
+        return AlertDialog(
+          backgroundColor: context.sbTheme.bgSurface,
+          title: Text('Edit Paint Color', style: TextStyle(color: context.sbTheme.textPrimary)),
+          content: SingleChildScrollView(
+            child: ColorPicker(
+              pickerColor: currentColor,
+              onColorChanged: (color) {
+                selectedColor = color;
+              },
+              pickerAreaHeightPercent: 0.8,
+              enableAlpha: false,
+              displayThumbColor: true,
+              paletteType: PaletteType.hsvWithHue,
+            ),
+          ),
+          actions: [
+            TextButton(
+              child: Text('Cancel', style: TextStyle(color: context.sbTheme.textSecondary)),
+              onPressed: () => Navigator.of(ctx).pop(),
+            ),
+            GlassButton(
+              label: 'Apply Mix',
+              accentColor: context.sbTheme.orbCyan,
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                _viewModel.overrideColor(index, selectedColor);
+              },
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -646,45 +1002,61 @@ class _GuideHomePageState extends State<GuideHomePage> {
         title: title,
         subtitle: description,
         leadingIcon: Icons.format_paint_rounded,
+        contentMaxWidth: 700,
+        contentAlignment: Alignment.topCenter,
         child: imageBytes != null
-            ? GestureDetector(
-                onTap: () => _showFullscreenGallery(context, galleryImages, galleryTitles, galleryStartIndex),
-                child: Center(
-                  child: Stack(
-                    alignment: Alignment.bottomCenter,
-                    children: [
-                      Container(
+            ? Padding(
+                padding: const EdgeInsets.only(top: 16),
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: GestureDetector(
+                    onTap: () => _showFullscreenGallery(
+                        context, galleryImages, galleryTitles, galleryStartIndex),
+                    child: Align(
+                      alignment: Alignment.center,
+                      child: Container(
                         constraints: const BoxConstraints(
-                          maxHeight: 250,
-                          maxWidth: 400,
+                          maxHeight: 350,
+                          maxWidth: 500, // Hard limit to prevent massive stretching
                         ),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(LiquidGlassTheme.radiusSm),
-                          border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.2),
-                              blurRadius: 15,
-                              offset: const Offset(0, 8),
+                        child: Stack(
+                          alignment: Alignment.bottomCenter,
+                          children: [
+                            Container(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(LiquidGlassTheme.radiusSm),
+                                border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.2),
+                                    blurRadius: 15,
+                                    offset: const Offset(0, 8),
+                                  ),
+                                ],
+                              ),
+                              clipBehavior: Clip.antiAlias,
+                              child: InteractiveViewer(
+                                minScale: 1.0,
+                                maxScale: 4.0,
+                                child: Image.memory(
+                                  imageBytes,
+                                  fit: BoxFit.contain,
+                                  gaplessPlayback: true,
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              bottom: 8,
+                              child: GlassChip(
+                                label: 'Pinch to zoom • Tap for gallery', 
+                                icon: Icons.zoom_in_rounded,
+                                color: Colors.white,
+                              ),
                             ),
                           ],
                         ),
-                        clipBehavior: Clip.antiAlias,
-                        child: Image.memory(
-                          imageBytes,
-                          fit: BoxFit.contain,
-                          gaplessPlayback: true,
-                        ),
                       ),
-                      Positioned(
-                        bottom: 8,
-                        child: GlassChip(
-                          label: 'Tap to view',
-                          icon: Icons.zoom_in_rounded,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               )
@@ -741,12 +1113,16 @@ class _GalleryDialogState extends State<_GalleryDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
+    return Dialog.fullscreen(
       backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.all(16),
-      child: Stack(
-        children: [
-          PageView.builder(
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Stack(
+            children: [
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  return PageView.builder(
             controller: _pageController,
             itemCount: widget.images.length,
             onPageChanged: (idx) {
@@ -756,18 +1132,29 @@ class _GalleryDialogState extends State<_GalleryDialog> {
             },
             itemBuilder: (context, index) {
               return InteractiveViewer(
-                minScale: 0.5,
+                minScale: 1.0,
                 maxScale: 6.0,
                 child: Center(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.memory(widget.images[index], fit: BoxFit.contain),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: constraints.maxWidth,
+                      maxHeight: constraints.maxHeight,
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.memory(
+                        widget.images[index], 
+                        fit: BoxFit.contain,
+                      ),
+                    ),
                   ),
                 ),
               );
             },
-          ),
-          Positioned(
+          );
+        },
+      ),
+      Positioned(
             top: 0,
             left: 0,
             right: 0,
@@ -824,7 +1211,9 @@ class _GalleryDialogState extends State<_GalleryDialog> {
           ),
         ],
       ),
-    );
+    ),
+  ),
+);
   }
 }
 
@@ -889,39 +1278,37 @@ class _LoadingOverlayState extends State<_LoadingOverlay>
         child: Container(
           color: Colors.black.withOpacity(0.8),
           child: Center(
-            child: ScaleTransition(
-              scale: _pulseAnim,
-              child: LiquidGlassContainer(
-                width: 280,
-                borderRadius: LiquidGlassTheme.radiusLg,
-                padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 36),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                    // Animated spinner ring
-                    SizedBox(
-                      width: 56,
-                      height: 56,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 4,
-                        backgroundColor: LiquidGlassTheme.glassBorder,
-                        color: LiquidGlassTheme.orbCyan,
-                        strokeCap: StrokeCap.round,
-                      ),
-                    ),
-                    const SizedBox(height: 28),
-                    Text(
-                      widget.s.loadingTitle,
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: LiquidGlassTheme.textPrimary,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 6),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 320, maxHeight: 320),
+            child: LiquidGlassContainer(
+              width: 280,
+              borderRadius: LiquidGlassTheme.radiusLg,
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                // Animated spinner ring
+                SizedBox(
+                  width: 56,
+                  height: 56,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 4,
+                    backgroundColor: context.sbTheme.glassBorder,
+                    color: context.sbTheme.orbCyan,
+                    strokeCap: StrokeCap.round,
+                  ),
+                ),
+                const SizedBox(height: 28),
+                Text(
+                  widget.s.loadingTitle,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: context.sbTheme.textPrimary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 6),
                     // Animated bouncing dots
                     AnimatedBuilder(
                       animation: _dotsCtrl,
@@ -941,11 +1328,11 @@ class _LoadingOverlayState extends State<_LoadingOverlay>
                                 width: 8,
                                 height: 8,
                                 decoration: BoxDecoration(
-                                  color: LiquidGlassTheme.orbCyan.withOpacity(0.8),
+                                  color: context.sbTheme.orbCyan.withOpacity(0.8),
                                   shape: BoxShape.circle,
                                   boxShadow: [
                                     BoxShadow(
-                                      color: LiquidGlassTheme.orbCyan.withOpacity(0.5),
+                                      color: context.sbTheme.orbCyan.withOpacity(0.5),
                                       blurRadius: 6,
                                     ),
                                   ],
@@ -961,7 +1348,7 @@ class _LoadingOverlayState extends State<_LoadingOverlay>
                       widget.s.loadingSubtitle,
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: LiquidGlassTheme.textTertiary,
+                        color: context.sbTheme.textTertiary,
                       ),
                     ),
                   ],
@@ -974,3 +1361,82 @@ class _LoadingOverlayState extends State<_LoadingOverlay>
     );
   }
 }
+
+
+
+const String _kMeansSnippet = '''
+// K-Means Iteration Logic
+while (changed && iteration < maxIterations) {
+  changed = false;
+  iteration++;
+
+  for (int i = 0; i < pixels.length; i++) {
+    int bestCluster = 0;
+    double minDistance = double.infinity;
+    for (int j = 0; j < k; j++) {
+      double dist = _distance(pixels[i], centroids[j]);
+      if (dist < minDistance) {
+        minDistance = dist;
+        bestCluster = j;
+      }
+    }
+    if (assignments[i] != bestCluster) {
+      assignments[i] = bestCluster;
+      changed = true;
+    }
+  }
+}
+''';
+
+const String _sobelSnippet = '''
+// 1. Medium blur to remove micro-details before Sobel
+img.Image blurredForEdges = img.gaussianBlur(baseImage.clone(), radius: 2);
+
+// 2. Deep edge detection
+img.Image edges = img.sobel(blurredForEdges);
+var shadowColor = globalColors.length > 2 ? globalColors[2] : globalColors[0];
+
+// 3. Intermediate threshold and blend
+for (int y = 0; y < baseImage.height; y++) {
+  for (int x = 0; x < baseImage.width; x++) {
+     var ep = edges.getPixel(x, y);
+     num mag = ep.r; 
+     
+     // Thresholding: If it's a clear edge but not noise (mag > 45)
+     if (mag > 45 && mag < 200) {
+         var sp = stepImg.getPixel(x, y);
+         // Blend with low opacity (alpha 0.45) using shadow color
+         sp.r = (sp.r * 0.55 + shadowColor.r * 0.45).floor();
+         sp.g = (sp.g * 0.55 + shadowColor.g * 0.45).floor();
+         sp.b = (sp.b * 0.55 + shadowColor.b * 0.45).floor();
+     }
+  }
+}
+''';
+
+const String _microContrastSnippet = '''
+// High-Frequency Micro-Contrast Isolation
+// 1. Heavy blur to separate frequencies
+img.Image blurred = img.gaussianBlur(baseImage.clone(), radius: 4);
+
+// 2. Calculate continuous high-pass 
+for (int y = 0; y < baseImage.height; y++) {
+  for (int x = 0; x < baseImage.width; x++) {
+    final orig = baseImage.getPixel(x, y);
+    final blur = blurred.getPixel(x, y);
+
+    int rDiff = max(0, (orig.r - blur.r).toInt());
+    int gDiff = max(0, (orig.g - blur.g).toInt());
+    int bDiff = max(0, (orig.b - blur.b).toInt());
+
+    double magnitude = sqrt(rDiff * rDiff + gDiff * gDiff + bDiff * bDiff);
+    
+    // Apply branch if frequency threshold is surpassed
+    if (magnitude > threshold) {
+      sp.r = min(255, (orig.r + (rDiff * gain)).toInt());
+      sp.g = min(255, (orig.g + (gDiff * gain)).toInt());
+      sp.b = min(255, (orig.b + (bDiff * gain)).toInt());
+    }
+  }
+}
+''';
