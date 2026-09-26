@@ -477,7 +477,7 @@ packages:
     dependency: "direct main"
     description:
       path: "."
-      ref: HEAD
+      ref: "v2.0.0"
       resolved-ref: "6789f643840713deaf7a568b9015295ae753c317"
       url: "https://github.com/King5upah/SandBlasterUI.git"
     source: git

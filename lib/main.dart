@@ -25,6 +25,7 @@ import 'package:sandblaster/components/glass_toggle_chip.dart';
 import 'package:sandblaster/components/glass_card.dart';
 import 'package:sandblaster/components/glass_button.dart';
 import 'package:sandblaster/widgets/liquid_glass_container.dart';
+import 'package:sandblaster/components/glass_alert_dialog.dart';
 import 'package:codeglyphs/src/codeglyph_view.dart';
 import 'package:codeglyphs/src/theme.dart';
 
@@ -179,6 +180,7 @@ class _GuideHomePageState extends State<GuideHomePage> {
                                           activeThumbIcon: const Icon(Icons.language, size: 12, color: Colors.black),
                                           inactiveThumbIcon: const Icon(Icons.language, size: 12, color: Colors.white),
                                           onChanged: (isEs) => _lang.value = isEs ? AppLang.es : AppLang.en,
+                                          showShadow: false,
                                         ),
                                         const SizedBox(width: 8),
                                         Text('ES', style: TextStyle(color: context.sbTheme.textSecondary, fontWeight: FontWeight.w600, fontSize: 13)),
@@ -244,6 +246,7 @@ class _GuideHomePageState extends State<GuideHomePage> {
                                         activeThumbIcon: const Icon(Icons.language, size: 12, color: Colors.black),
                                         inactiveThumbIcon: const Icon(Icons.language, size: 12, color: Colors.white),
                                         onChanged: (isEs) => _lang.value = isEs ? AppLang.es : AppLang.en,
+                                        showShadow: false,
                                       ),
                                       const SizedBox(width: 8),
                                       Text('ES', style: TextStyle(color: context.sbTheme.textSecondary, fontWeight: FontWeight.w600, fontSize: 13)),
@@ -371,6 +374,7 @@ class _GuideHomePageState extends State<GuideHomePage> {
         onTap: (hasImage || _viewModel.isProcessing) ? null : _viewModel.pickAndProcessImage,
         padding: EdgeInsets.zero,
         borderRadius: LiquidGlassTheme.radiusLg,
+        showShadow: false,
         child: ClipRRect(
           borderRadius: BorderRadius.circular(LiquidGlassTheme.radiusLg),
           child: _buildUploadContent(s, context),
@@ -388,6 +392,7 @@ class _GuideHomePageState extends State<GuideHomePage> {
             label: s.changeImage,
             icon: Icons.replay_rounded,
             onPressed: () => _confirmAndChangeImage(s),
+            showShadow: false,
           ),
         ],
       );
@@ -397,63 +402,26 @@ class _GuideHomePageState extends State<GuideHomePage> {
   }
 
   void _confirmAndChangeImage(AppStrings s) {
-    showDialog(
+    GlassAlertDialog.show(
       context: context,
-      builder: (BuildContext ctx) {
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 400),
-            child: LiquidGlassContainer(
-              padding: const EdgeInsets.all(24),
-              borderRadius: LiquidGlassTheme.radiusLg,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.warning_amber_rounded, size: 48, color: Colors.orange.shade300),
-                  const SizedBox(height: 16),
-                  Text(
-                    s.confirmChangeTitle,
-                    style: Theme.of(ctx).textTheme.titleLarge?.copyWith(
-                      color: ctx.sbTheme.textPrimary,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    s.confirmChangeDesc,
-                    style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
-                      color: ctx.sbTheme.textSecondary,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 32),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      GlassButton(
-                        label: s.confirmCancel,
-                        onPressed: () => Navigator.of(ctx).pop(),
-                      ),
-                      const SizedBox(width: 12),
-                      GlassButton(
-                        label: s.confirmYes,
-                        onPressed: () {
-                          Navigator.of(ctx).pop();
-                          _viewModel.pickAndProcessImage();
-                        },
-                        accentColor: Colors.deepOrange,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
+      title: Text(s.confirmChangeTitle),
+      content: Text(s.confirmChangeDesc),
+      actions: [
+        GlassButton(
+          label: s.confirmCancel,
+          onPressed: () => Navigator.of(context).pop(),
+          showShadow: false,
+        ),
+        GlassButton(
+          label: s.confirmYes,
+          onPressed: () {
+            Navigator.of(context).pop();
+            _viewModel.pickAndProcessImage();
+          },
+          accentColor: Colors.deepOrange,
+          showShadow: false,
+        ),
+      ],
     );
   }
 
@@ -582,6 +550,7 @@ class _GuideHomePageState extends State<GuideHomePage> {
           borderRadius: LiquidGlassTheme.radiusSm,
           padding: const EdgeInsets.symmetric(horizontal: 12),
           onTap: disabled ? null : () => _viewModel.processImageFromUrl(url),
+          showShadow: false,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -711,12 +680,14 @@ class _GuideHomePageState extends State<GuideHomePage> {
                           loading: encoding,
                           onPressed: encoding ? null : () => _downloadGif(guide),
                           accentColor: context.sbTheme.orbCyan,
+                          showShadow: false,
                         ),
                         GlassButton(
                           label: 'Export PDF',
                           icon: Icons.picture_as_pdf_rounded,
                           onPressed: () => PdfGenerator.exportGuide(guide, s),
                           accentColor: context.sbTheme.orbPink,
+                          showShadow: false,
                         ),
                       ],
                     );
@@ -822,6 +793,7 @@ class _GuideHomePageState extends State<GuideHomePage> {
     return LiquidGlassContainer(
       padding: const EdgeInsets.all(32),
       borderRadius: LiquidGlassTheme.radiusLg,
+      showShadow: false,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -980,6 +952,7 @@ class _GuideHomePageState extends State<GuideHomePage> {
                 Navigator.of(ctx).pop();
                 _viewModel.overrideColor(index, selectedColor);
               },
+              showShadow: false,
             ),
           ],
         );
@@ -1004,6 +977,7 @@ class _GuideHomePageState extends State<GuideHomePage> {
         leadingIcon: Icons.format_paint_rounded,
         contentMaxWidth: 700,
         contentAlignment: Alignment.topCenter,
+        showShadow: false,
         child: imageBytes != null
             ? Padding(
                 padding: const EdgeInsets.only(top: 16),
@@ -1051,6 +1025,7 @@ class _GuideHomePageState extends State<GuideHomePage> {
                                 label: 'Pinch to zoom • Tap for gallery', 
                                 icon: Icons.zoom_in_rounded,
                                 color: Colors.white,
+                                showShadow: false,
                               ),
                             ),
                           ],
@@ -1164,12 +1139,14 @@ class _GalleryDialogState extends State<_GalleryDialog> {
                 GlassChip(
                   label: '${_currentIndex + 1}/${widget.images.length} - ${widget.titles.isNotEmpty ? widget.titles[_currentIndex] : ''}',
                   color: Colors.white,
+                  showShadow: false,
                 ),
                 GlassButton(
                   variant: GlassButtonVariant.icon,
                   icon: Icons.close_rounded,
                   accentColor: Colors.white,
                   onPressed: () => Navigator.of(context).pop(), // Pass directly, NO GestureDetectors outside
+                  showShadow: false,
                 ),
               ],
             ),
@@ -1190,6 +1167,7 @@ class _GalleryDialogState extends State<_GalleryDialog> {
                             duration: const Duration(milliseconds: 300),
                             curve: Curves.easeInOut);
                       },
+                      showShadow: false,
                     ),
                   ),
                 if (_currentIndex < widget.images.length - 1)
@@ -1204,6 +1182,7 @@ class _GalleryDialogState extends State<_GalleryDialog> {
                             duration: const Duration(milliseconds: 300),
                             curve: Curves.easeInOut);
                       },
+                      showShadow: false,
                     ),
                   ),
               ],
@@ -1284,6 +1263,7 @@ class _LoadingOverlayState extends State<_LoadingOverlay>
               width: 280,
               borderRadius: LiquidGlassTheme.radiusLg,
               padding: const EdgeInsets.all(32),
+              showShadow: false,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.center,

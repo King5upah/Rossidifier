@@ -42,6 +42,7 @@ dependencies:
   sandblaster:
     git:
       url: https://github.com/King5upah/SandBlasterUI.git
+      ref: v2.0.0
   codeglyphs:
     git:
       url: https://github.com/King5upah/CodeglyphWeb.git
